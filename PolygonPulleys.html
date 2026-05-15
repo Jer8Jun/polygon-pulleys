@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PolygonPulleys</title>
+<!-- <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"> -->
+<style>
+  :root {
+    --bg: #0e0f11;
+    --bg2: #16181c;
+    --bg3: #1e2128;
+    --panel: #13151a;
+    --border: #2a2d35;
+    --border2: #363a45;
+    --accent: #4d9eff;
+    --accent2: #2d7dd6;
+    --accent-dim: rgba(77,158,255,0.12);
+    --text: #e2e4ea;
+    --text2: #8a8f9e;
+    --text3: #555a6a;
+    --green: #3dba7a;
+    --amber: #f5a623;
+    --red: #e05c5c;
+    --pulley-fill: #1e2128;
+    --pulley-stroke: #4d9eff;
+    --belt: #f5a623;
+    --grid: rgba(255,255,255,0.04);
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    height: 48px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  header .logo {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  header .sep { width: 1px; height: 20px; background: var(--border); }
+  header .subtitle { color: var(--text2); font-size: 12px; }
+  header .spacer { flex: 1; }
+  .header-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .header-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .header-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+  .header-btn.primary:hover { background: var(--accent2); border-color: var(--accent2); }
+
+  /* ── Layout ── */
+  .workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Left sidebar ── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .sidebar-tab {
+    flex: 1;
+    padding: 10px 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: color 0.15s, border-color 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .sidebar-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .sidebar-tab:hover:not(.active) { color: var(--text2); }
+
+  .tab-panel { display: none; flex-direction: column; overflow: hidden; flex: 1; }
+  .tab-panel.active { display: flex; }
+
+  /* Scrollable inner */
+  .tab-scroll { overflow-y: auto; flex: 1; padding: 12px; }
+  .tab-scroll::-webkit-scrollbar { width: 4px; }
+  .tab-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Section headers */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin: 16px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-label:first-child { margin-top: 4px; }
+
+  /* Form fields */
+  .field { margin-bottom: 8px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: var(--text2);
+    margin-bottom: 4px;
+    font-family: var(--mono);
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select option { background: var(--bg3); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* Pulley list */
+  .pulley-list { display: flex; flex-direction: column; gap: 4px; }
+  .pulley-item {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .pulley-item:hover { border-color: var(--border2); }
+  .pulley-item.selected { border-color: var(--accent); background: var(--accent-dim); }
+  .pulley-dot {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 2px solid var(--pulley-stroke);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 9px; color: var(--accent);
+    font-weight: 500;
+  }
+  .pulley-info { flex: 1; min-width: 0; }
+  .pulley-name { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .pulley-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .pulley-delete {
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px;
+    border-radius: 2px; transition: color 0.15s, background 0.15s;
+  }
+  .pulley-delete:hover { color: var(--red); background: rgba(224,92,92,0.1); }
+
+  /* Add pulley button */
+  .add-btn {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border2);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: border-color 0.15s, color 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Sequence tags */
+  .sequence-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px;
+    min-height: 44px;
+  }
+  .seq-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 3px 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text2);
+    cursor: default;
+  }
+  .seq-tag .seq-remove {
+    background: none; border: none; color: var(--text3); cursor: pointer;
+    font-size: 12px; line-height: 1; padding: 0 0 0 2px;
+  }
+  .seq-tag .seq-remove:hover { color: var(--red); }
+  .seq-hint { font-size: 10px; color: var(--text3); font-style: italic; font-family: var(--mono); align-self: center; }
+  .seq-picker { display: flex; gap: 6px; margin-top: 8px; }
+  .seq-picker select { flex: 1; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 8px; border-radius: 3px; outline: none; }
+  .seq-picker select:focus { border-color: var(--accent); }
+  .seq-add-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .seq-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Canvas area ── */
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  canvas#grid-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+  }
+  canvas#main-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    cursor: crosshair;
+  }
+
+  /* Canvas overlay hints */
+  .canvas-hint {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(14,15,17,0.85);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 6px 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+    pointer-events: none;
+    display: flex;
+    gap: 16px;
+  }
+  .canvas-hint span b { color: var(--text2); font-weight: 500; }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .zoom-btn {
+    width: 28px; height: 28px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: border-color 0.15s, color 0.15s;
+    user-select: none;
+  }
+  .zoom-btn:hover { border-color: var(--border2); color: var(--text); }
+  .zoom-level {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 4px 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+  }
+
+  /* Coordinate display */
+  .coord-display {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+    pointer-events: none;
+  }
+
+  /* ── Right panel ── */
+  .right-panel {
+    width: 240px;
+    min-width: 240px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .right-panel-header {
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .right-scroll { overflow-y: auto; flex: 1; padding: 12px 14px; }
+  .right-scroll::-webkit-scrollbar { width: 4px; }
+  .right-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Solve section */
+  .solve-row { margin-bottom: 8px; }
+  .solve-row label {
+    display: block; font-size: 11px; color: var(--text2);
+    margin-bottom: 4px; font-family: var(--mono);
+  }
+  .solve-row select, .solve-row input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 6px 8px; border-radius: 3px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .solve-row select:focus, .solve-row input:focus { border-color: var(--accent); }
+  .solve-btn {
+    width: 100%;
+    background: var(--accent);
+    border: none;
+    color: #fff;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 9px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 12px;
+    letter-spacing: 0.04em;
+    transition: background 0.15s;
+  }
+  .solve-btn:hover { background: var(--accent2); }
+
+  /* Result display */
+  .result-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-top: 12px;
+  }
+  .result-label { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-bottom: 4px; }
+  .result-value { font-family: var(--mono); font-size: 22px; color: var(--green); font-weight: 500; }
+  .result-unit { font-size: 12px; color: var(--text3); }
+  .result-empty { font-family: var(--mono); font-size: 11px; color: var(--text3); font-style: italic; }
+
+  /* Status badges */
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+  .badge {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+  }
+  .badge.ok { background: rgba(61,186,122,0.12); color: var(--green); border: 1px solid rgba(61,186,122,0.25); }
+  .badge.warn { background: rgba(245,166,35,0.12); color: var(--amber); border: 1px solid rgba(245,166,35,0.25); }
+  .badge.err { background: rgba(224,92,92,0.12); color: var(--red); border: 1px solid rgba(224,92,92,0.25); }
+
+  /* Properties panel (selected pulley) */
+  .props-panel { margin-top: 16px; }
+  .props-title {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    color: var(--text3); text-transform: uppercase;
+    padding-bottom: 6px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+  }
+  .prop-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; gap: 8px;
+  }
+  .prop-row label { font-size: 11px; color: var(--text2); font-family: var(--mono); white-space: nowrap; }
+  .prop-row input, .prop-row select {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .prop-row input:focus, .prop-row select:focus { border-color: var(--accent); }
+
+  /* No selection */
+  .no-selection {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    font-style: italic;
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .toggle-row label { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+  .toggle {
+    position: relative; width: 32px; height: 18px; cursor: pointer;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--border2); border-radius: 9px; transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: ''; position: absolute;
+    width: 12px; height: 12px; left: 3px; top: 3px;
+    background: var(--text3); border-radius: 50%; transition: transform 0.2s, background 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(14px); background: #fff; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <span class="logo">POLYGON PULLEYS</span>
+  <div class="sep"></div>
+  <span class="subtitle">belt drive layout tool</span>
+  <div class="spacer"></div>
+  <button class="header-btn" onclick="exportSystem()">export JSON</button>
+  <button class="header-btn" onclick="importSystem()">import JSON</button>
+  <button class="header-btn primary" onclick="clearAll()">new system</button>
+</header>
+
+<div class="workspace">
+
+  <!-- Left Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active" data-tab="pulleys" onclick="switchTab('pulleys')">PULLEYS</div>
+      <div class="sidebar-tab" data-tab="belt" onclick="switchTab('belt')">BELT</div>
+      <div class="sidebar-tab" data-tab="sequence" onclick="switchTab('sequence')">SEQUENCE</div>
+    </div>
+
+    <!-- Pulleys tab -->
+    <div class="tab-panel active" id="tab-pulleys">
+      <div class="tab-scroll">
+        <div class="section-label">pulley list</div>
+        <div class="pulley-list" id="pulley-list">
+          <!-- populated by JS -->
+        </div>
+        <button class="add-btn" onclick="addPulley()">+ add pulley</button>
+
+        <div class="section-label" style="margin-top:20px;">selected pulley</div>
+        <div id="pulley-props">
+          <div class="no-selection">click a pulley to edit</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Belt tab -->
+    <div class="tab-panel" id="tab-belt">
+      <div class="tab-scroll">
+        <div class="section-label">belt parameters</div>
+        <div class="field">
+          <label>pitch (mm)</label>
+          <input type="number" id="belt-pitch" value="5" step="0.1" min="0" onchange="updateBelt()">
+        </div>
+        <div class="field">
+          <label>number of teeth</label>
+          <input type="number" id="belt-teeth" value="150" step="1" min="1" onchange="updateBelt()">
+        </div>
+        <div class="field">
+          <label>belt length (mm) <span style="color:var(--text3);font-size:10px;">= pitch × teeth</span></label>
+          <input type="number" id="belt-length" value="750" step="1" min="1" onchange="updateBeltFromLength()">
+        </div>
+        <div class="divider"></div>
+        <div class="section-label">computed</div>
+        <div class="result-box">
+          <div class="result-label">total length</div>
+          <div class="result-value" id="belt-length-display">750 <span class="result-unit">mm</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sequence tab -->
+    <div class="tab-panel" id="tab-sequence">
+      <div class="tab-scroll">
+        <div class="section-label">belt winding order</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.6;">
+          Add pulleys in the order the belt winds around them. The sequence must be <span style="color:var(--amber);">explicitly closed</span> — the last entry must match the first (e.g. 1→2→3→2→1).
+        </p>
+        <div class="sequence-container" id="sequence-container">
+          <span class="seq-hint">no pulleys in sequence</span>
+        </div>
+        <div class="seq-picker">
+          <select id="seq-select">
+            <option value="">— select pulley —</option>
+          </select>
+          <button class="seq-add-btn" onclick="addToSequence()">add</button>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:6px;">
+          <button class="add-btn" style="margin:0;flex:1;" onclick="clearSequence()">clear sequence</button>
+        </div>
+
+        <div class="section-label" style="margin-top:20px;">contact flip</div>
+        <p style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.6;">
+          Flip contact side for individual pulleys (inside vs outside belt face).
+        </p>
+        <div id="flip-list">
+          <div class="no-selection">add pulleys to configure</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="canvas-wrap" id="canvas-wrap">
+    <canvas id="grid-canvas"></canvas>
+    <canvas id="main-canvas"
+      onmousedown="canvasMouseDown(event)"
+      onmousemove="canvasMouseMove(event)"
+      onmouseup="canvasMouseUp(event)"
+      ondblclick="canvasDblClick(event)"
+      onwheel="canvasWheel(event)"
+      oncontextmenu="return false;"
+    ></canvas>
+
+    <div class="coord-display" id="coord-display">x: 0 &nbsp; y: 0</div>
+    <div class="canvas-hint">
+      <span><b>click</b> canvas to place pulley</span>
+      <span><b>drag</b> to move</span>
+      <span><b>scroll</b> to zoom</span>
+      <span><b>right-drag</b> to pan</span>
+    </div>
+    <div class="zoom-controls">
+      <div class="zoom-btn" onclick="zoom(1.2)">+</div>
+      <div class="zoom-level" id="zoom-level">100%</div>
+      <div class="zoom-btn" onclick="zoom(1/1.2)">−</div>
+      <div class="zoom-btn" onclick="resetView()" title="reset view" style="font-size:11px;font-family:var(--mono);">⌂</div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel">
+    <div class="right-panel-header">solve</div>
+    <div class="right-scroll">
+      <div class="solve-row">
+        <label>unknown to solve</label>
+        <select id="solve-unknown" onchange="updateSolveUI()">
+          <option value="belt_length">belt length</option>
+          <option value="pulley_position">pulley position</option>
+          <option value="pulley_diameter">pulley diameter</option>
+          <option value="pulley_teeth">pulley teeth</option>
+          <option value="pulley_ratio">pulley ratio</option>
+          <option value="ratio_only">ratio-only system</option>
+        </select>
+      </div>
+      <div class="solve-row" id="solve-target-row" style="display:none;">
+        <label>target pulley</label>
+        <select id="solve-target-pulley">
+          <option value="">— select —</option>
+        </select>
+      </div>
+      <div class="solve-row" id="solve-axis-row" style="display:none;">
+        <label>axis to solve</label>
+        <select id="solve-axis">
+          <option value="x">x position</option>
+          <option value="y">y position</option>
+        </select>
+      </div>
+      <div id="ratio-only-info" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:4px;">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;letter-spacing:0.04em;">RATIO-ONLY MODE</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.6;">
+          Diameters and teeth are ignored. The solver uses only the <span style="color:var(--amber);">ratio</span> field on each pulley plus the <span style="color:var(--amber);">belt length</span> to find a self-consistent set of absolute diameters.<br><br>
+          Set one pulley's ratio to <span style="font-family:var(--mono);color:var(--accent);">1.0</span> as the reference. Set others relative to it (e.g. 2.0 = twice as large). The solver scales all diameters and teeth to fit the belt.
+        </div>
+        <div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--text3);">passed to solver as: unknown_index = RATIO_ONLY</div>
+      </div>
+      <button class="solve-btn" onclick="runSolver()">▶ SOLVE</button>
+
+      <div class="result-box" id="result-box" style="display:none;">
+        <div class="result-label" id="result-label">result</div>
+        <div class="result-value" id="result-value">—</div>
+      </div>
+
+      <div class="status-row">
+        <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">system status</span>
+        <span class="badge warn" id="status-badge">needs setup</span>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">system summary</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text3);line-height:2;">
+        <div>pulleys: <span style="color:var(--text2);" id="summary-pulleys">0</span></div>
+        <div>belt length: <span style="color:var(--text2);" id="summary-belt">—</span></div>
+        <div>sequence steps: <span style="color:var(--text2);" id="summary-seq">0</span></div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">export as python</div>
+      <button class="header-btn" style="width:100%;font-size:11px;" onclick="exportPython()">copy system.py snippet</button>
+      <div id="py-copy-msg" style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:6px;display:none;">copied to clipboard ✓</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+
+let pulleys = [];
+let belt = { pitch: 5, teeth: 150, length: 750 };
+let sequence = [];
+let selectedPulleyId = null;
+let pulleyCounter = 0;
+
+// Canvas state
+let canvasScale = 1;
+let canvasOffX = 0;
+let canvasOffY = 0;
+let isDragging = false;
+let dragTarget = null;
+let isPanning = false;
+let lastMouse = { x: 0, y: 0 };
+let placingMode = true;
+
+// ─── Pulley model ─────────────────────────────────────────────────────────────
+function makePulley(x, y) {
+  pulleyCounter++;
+  return {
+    id: pulleyCounter,
+    name: 'P' + pulleyCounter,
+    x: x,
+    y: y,
+    pitchDiameter: 47.74652326,
+    teeth: 30,
+    ratio: 1.0,
+    flip: false,
+  };
+}
+
+// ─── Belt model ───────────────────────────────────────────────────────────────
+
+function updateBelt() {
+  belt.pitch = parseFloat(document.getElementById('belt-pitch').value) || 5;
+  belt.teeth = parseInt(document.getElementById('belt-teeth').value) || 150;
+  belt.length = belt.pitch * belt.teeth;
+  document.getElementById('belt-length').value = belt.length;
+  document.getElementById('belt-length-display').innerHTML =
+    belt.length.toFixed(1) + ' <span class="result-unit">mm</span>';
+  updateSummary();
+  redraw();
+}
+
+function updateBeltFromLength() {
+  belt.length = parseFloat(document.getElementById('belt-length').value) || 750;
+  belt.pitch = parseFloat(document.getElementById('belt-pitch').value) || 5;
+  belt.teeth = Math.round(belt.length / belt.pitch);
+  document.getElementById('belt-teeth').value = belt.teeth;
+  document.getElementById('belt-length-display').innerHTML =
+    belt.length.toFixed(1) + ' <span class="result-unit">mm</span>';
+  updateSummary();
+}
+
+// ─── Sidebar tabs ─────────────────────────────────────────────────────────────
+
+function switchTab(name) {
+  document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ─── Pulley management ────────────────────────────────────────────────────────
+
+function addPulley(x, y) {
+  const cx = x !== undefined ? x : 0;
+  const cy = y !== undefined ? y : 0;
+  const p = makePulley(cx, cy);
+  pulleys.push(p);
+  selectPulley(p.id);
+  renderPulleyList();
+  renderSequencePickers();
+  updateSummary();
+  redraw();
+}
+
+function deletePulley(id, event) {
+  event && event.stopPropagation();
+  pulleys = pulleys.filter(p => p.id !== id);
+  sequence = sequence.filter(s => s !== id);
+  if (selectedPulleyId === id) selectedPulleyId = null;
+  renderPulleyList();
+  renderSequencePickers();
+  renderSequenceList();
+  renderPulleyProps();
+  updateSummary();
+  redraw();
+}
+
+function selectPulley(id) {
+  selectedPulleyId = id;
+  if (id != null)
+    switchTab("pulleys");
+  renderPulleyList();
+  renderPulleyProps();
+  redraw();
+}
+
+function getPulley(id) {
+  return pulleys.find(p => p.id === id);
+}
+
+function renderPulleyList() {
+  const list = document.getElementById('pulley-list');
+  if (pulleys.length === 0) {
+    list.innerHTML = '<div class="no-selection">no pulleys — click canvas to place</div>';
+    return;
+  }
+  list.innerHTML = pulleys.map(p => `
+    <div class="pulley-item ${p.id === selectedPulleyId ? 'selected' : ''}" onclick="selectPulley(${p.id})">
+      <div class="pulley-dot">${p.name}</div>
+      <div class="pulley-info">
+        <div class="pulley-name">${p.name}</div>
+        <div class="pulley-meta">⌀${p.pitchDiameter.toFixed(1)}mm · ${Number.isInteger(p.teeth) ? p.teeth : p.teeth.toFixed(2)}T · (${Math.round(p.x)}, ${Math.round(p.y)})</div>
+      </div>
+      <button class="pulley-delete" onclick="deletePulley(${p.id}, event)">×</button>
+    </div>
+  `).join('');
+}
+
+function renderPulleyProps() {
+  const container = document.getElementById('pulley-props');
+  const p = getPulley(selectedPulleyId);
+  if (!p) {
+    container.innerHTML = '<div class="no-selection">click a pulley to edit</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="prop-row"><label>name</label>
+      <input type="text" value="${p.name}" onchange="updateProp(${p.id},'name',this.value)">
+    </div>
+    <div class="prop-row"><label>x (mm)</label>
+      <input type="number" id="prop-x-${p.id}" value="${Math.round(p.x)}" onchange="updatePropNum(${p.id},'x',this.value)">
+    </div>
+    <div class="prop-row"><label>y (mm)</label>
+      <input type="number" id="prop-y-${p.id}" value="${Math.round(p.y)}" onchange="updatePropNum(${p.id},'y',this.value)">
+    </div>
+    <div class="prop-row"><label>pitch dia. (mm)</label>
+      <input type="number" id="prop-pd-${p.id}" value="${p.pitchDiameter.toFixed(3)}" min="0.1" step="0.5"
+        onchange="onPitchDiameterChange(${p.id}, this.value)">
+    </div>
+    <div class="prop-row"><label>teeth</label>
+      <input type="number" id="prop-teeth-${p.id}" value="${Number.isInteger(p.teeth) ? p.teeth : p.teeth.toFixed(2)}" min="1" step="1"
+        onchange="onTeethChange(${p.id}, this.value)">
+    </div>
+    <div class="prop-row"><label>ratio</label>
+      <input type="number" id="prop-ratio-${p.id}" value="${p.ratio.toFixed(4)}" min="0.0001" step="0.01"
+        onchange="onRatioChange(${p.id}, this.value)">
+    </div>
+    <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:6px;line-height:1.5;">
+      ratio scales pitch dia. relative to<br>another pulley with ratio defined
+    </div>
+    <div class="toggle-row" style="margin-top:4px;">
+      <label>flip contact</label>
+      <label class="toggle">
+        <input type="checkbox" ${p.flip ? 'checked' : ''} onchange="updateProp(${p.id},'flip',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  `;
+}
+
+function onPitchDiameterChange(id, value) {
+  const p = getPulley(id);
+  if (!p) return;
+  p.pitchDiameter = parseFloat(value) || p.pitchDiameter;
+  // derive teeth as float — keeps precision visible
+  p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch;
+  const refPulley = pulleys.find(q => q.id !== id && q.ratio !== 1.0);
+  if (refPulley) {
+    p.ratio = p.pitchDiameter / refPulley.pitchDiameter * refPulley.ratio;
+  }
+  syncPropFields(p);
+  renderPulleyList();
+  redraw();
+}
+
+function onTeethChange(id, value) {
+  const p = getPulley(id);
+  if (!p) return;
+  p.teeth = parseInt(value) || p.teeth;  // integer when user enters directly
+  p.pitchDiameter = (p.teeth * belt.pitch) / Math.PI;
+  const refPulley = pulleys.find(q => q.id !== id && q.ratio !== 1.0);
+  if (refPulley) {
+    p.ratio = p.pitchDiameter / refPulley.pitchDiameter * refPulley.ratio;
+  }
+  syncPropFields(p);
+  renderPulleyList();
+  redraw();
+}
+
+function onRatioChange(id, value) {
+  const p = getPulley(id);
+  if (!p) return;
+  const newRatio = parseFloat(value) || p.ratio;
+  const refPulley = pulleys.find(q => q.id !== id);
+  if (refPulley && refPulley.ratio > 0) {
+    p.pitchDiameter = (newRatio / refPulley.ratio) * refPulley.pitchDiameter;
+    p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch; // float — derived
+  }
+  p.ratio = newRatio;
+  syncPropFields(p);
+  renderPulleyList();
+  redraw();
+}
+
+function syncPropFields(p) {
+  const pdEl = document.getElementById(`prop-pd-${p.id}`);
+  const teethEl = document.getElementById(`prop-teeth-${p.id}`);
+  const ratioEl = document.getElementById(`prop-ratio-${p.id}`);
+  if (pdEl) pdEl.value = p.pitchDiameter.toFixed(3);
+  if (teethEl) teethEl.value = Number.isInteger(p.teeth) ? p.teeth : p.teeth.toFixed(2);
+  if (ratioEl) ratioEl.value = p.ratio.toFixed(4);
+}
+
+function updateProp(id, key, value) {
+  const p = getPulley(id);
+  if (!p) return;
+  p[key] = value;
+  renderPulleyList();
+  renderSequencePickers();
+  renderSequenceList();
+  redraw();
+}
+
+function updatePropNum(id, key, value) {
+  const p = getPulley(id);
+  if (!p) return;
+  p[key] = parseFloat(value) || 0;
+  renderPulleyList();
+  redraw();
+}
+
+function getTangentVector(from, to) {
+  if (typeof from == "number") {
+    from = getPulley(from);
+    to = getPulley(to);
+  }
+
+  const k = 0.5 * ((from.flip ? -1 : 1) * from.pitchDiameter - (to.flip ? -1 : 1) * to.pitchDiameter);
+  const r = {x: to.x - from.x, y: to.y - from.y};
+  const r_sqr_mag = r.x * r.x + r.y * r.y;
+  const r_mag = Math.sqrt(r_sqr_mag);
+  const x_x = (r_sqr_mag - k * k)/r_mag;
+  const y_x = k == 0 ? 0 : ((x_x - r_mag) * x_x) / Math.sqrt(k * k - (x_x - r_mag) * (x_x - r_mag)) * Math.sign(k);
+  const dx = (x_x * r.x - y_x * r.y) / r_mag;
+  const dy = (y_x * r.x + x_x * r.y) / r_mag;
+
+  return {x: dx, y: dy};
+}
+
+function getArcAngle(fromTangent, toTangent) {
+  const dot = fromTangent.x * toTangent.x + fromTangent.y * toTangent.y;
+  const mag = Math.sqrt((fromTangent.x * fromTangent.x + fromTangent.y * fromTangent.y) * (toTangent.x * toTangent.x + toTangent.y * toTangent.y));
+  const angle = Math.acos(dot / mag);
+  return (fromTangent.x * toTangent.y - fromTangent.y * toTangent.x) < 0 ? angle : (2 * Math.PI - angle);
+}
+
+// ─── Sequence management ──────────────────────────────────────────────────────
+
+function renderSequencePickers() {
+  const sel = document.getElementById('seq-select');
+  const tgt = document.getElementById('solve-target-pulley');
+  const names = pulleys.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  sel.innerHTML = '<option value="">— select pulley —</option>' + names;
+  tgt.innerHTML = '<option value="">— select —</option>' + names;
+}
+
+function addToSequence() {
+  const sel = document.getElementById('seq-select');
+  const id = parseInt(sel.value);
+  if (!id) return;
+  sequence.push(id);
+  renderSequenceList();
+  updateSummary();
+}
+
+function clearSequence() {
+  sequence = [];
+  renderSequenceList();
+  updateSummary();
+}
+
+function renderSequenceList() {
+  const container = document.getElementById('sequence-container');
+  if (sequence.length === 0) {
+    container.innerHTML = '<span class="seq-hint">no pulleys in sequence</span>';
+  } else {
+    container.innerHTML = sequence.map((s, i) => {
+      const p = getPulley(s);
+      return `<div class="seq-tag">
+        <span style="color:var(--text3);font-size:10px;">${i+1}</span>
+        ${p ? p.name : '?'}
+        <button class="seq-remove" onclick="removeFromSequence(${i})">×</button>
+      </div>`;
+    }).join('');
+  }
+
+  const flipList = document.getElementById('flip-list');
+  if (sequence.length === 0) {
+    flipList.innerHTML = '<div class="no-selection">add pulleys to configure</div>';
+  } else {
+    const seen = new Set();
+    flipList.innerHTML = sequence.filter(s => {
+      if (seen.has(s)) return false;
+      seen.add(s); return true;
+    }).map(s => {
+      const p = getPulley(s);
+      if (!p) return '';
+      return `<div class="toggle-row">
+        <label>${p.name} flip</label>
+        <label class="toggle">
+          <input type="checkbox" ${p.flip ? 'checked' : ''} onchange="updateProp(${p.id},'flip',this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>`;
+    }).join('');
+  }
+
+  redraw();
+}
+
+function removeFromSequence(index) {
+  sequence.splice(index, 1);
+  renderSequenceList();
+  updateSummary();
+  redraw();
+}
+
+// ─── Solve UI ─────────────────────────────────────────────────────────────────
+
+function updateSolveUI() {
+  const unknown = document.getElementById('solve-unknown').value;
+  const isRatioOnly = unknown === 'ratio_only';
+  const needsTarget = !isRatioOnly && ['pulley_position','pulley_diameter','pulley_teeth','pulley_ratio'].includes(unknown);
+  const needsAxis = unknown === 'pulley_position';
+  document.getElementById('solve-target-row').style.display = needsTarget ? 'block' : 'none';
+  document.getElementById('solve-axis-row').style.display = needsAxis ? 'block' : 'none';
+  document.getElementById('ratio-only-info').style.display = isRatioOnly ? 'block' : 'none';
+}
+
+function runSolver() {
+  // ── WIRING POINT ──────────────────────────────────────────────────────────
+  // Replace this block with your actual solver call.
+  // The system state is available as:
+  //   pulleys  →  array of pulley objects (see makePulley())
+  //   belt     →  { pitch, teeth, length }
+  //   sequence →  array of { pulleyId, flip }
+  //   unknownType  →  string from solve-unknown select
+  //   targetPulleyId  →  id of target pulley (if applicable)
+  //
+  // Example (when solver is wired):
+  //   const system = buildSystemForSolver();
+  //   system.solve();
+  //   displayResult(system.result, system.unit);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const unknown = document.getElementById('solve-unknown').value;
+  const targetId = parseInt(document.getElementById('solve-target-pulley').value);
+  const axis = document.getElementById('solve-axis').value; // 'x' or 'y', relevant when unknown === 'pulley_position'
+
+  if (pulleys.length < 2) {
+    showStatus('need ≥2 pulleys', 'err');
+    return;
+  }
+  if (!isSequenceClosed()) {
+    showStatus('sequence not closed', 'warn');
+    return;
+  }
+
+  // Placeholder — show stub result
+  const box = document.getElementById('result-box');
+  box.style.display = 'block';
+  document.getElementById('result-label').textContent = unknown.replace('_', ' ');
+  document.getElementById('result-value').innerHTML =
+    '<span style="color:var(--text3);font-size:13px;font-style:italic;">solver not yet connected</span>';
+  showStatus('ready', 'ok');
+}
+
+function displayResult(value, unit, label) {
+  const box = document.getElementById('result-box');
+  box.style.display = 'block';
+  document.getElementById('result-label').textContent = label || 'result';
+  document.getElementById('result-value').innerHTML =
+    `${typeof value === 'number' ? value.toFixed(2) : value} <span class="result-unit">${unit || ''}</span>`;
+  showStatus('solved ✓', 'ok');
+  redraw();
+}
+
+function showStatus(text, type) {
+  const b = document.getElementById('status-badge');
+  b.textContent = text;
+  b.className = 'badge ' + type;
+}
+
+// ─── Summary ──────────────────────────────────────────────────────────────────
+
+function isSequenceClosed() {
+  return sequence.length >= 3 &&
+    sequence[0] === sequence[sequence.length - 1];
+}
+
+function updateSummary() {
+  document.getElementById('summary-pulleys').textContent = pulleys.length;
+  document.getElementById('summary-belt').textContent = belt.length.toFixed(1) + ' mm';
+  document.getElementById('summary-seq').textContent = sequence.length;
+
+  if (pulleys.length < 2) {
+    showStatus('need ≥2 pulleys', 'warn'); return;
+  }
+  if (!isSequenceClosed()) {
+    showStatus('sequence not closed', 'warn'); return;
+  }
+  showStatus('ready', 'ok');
+}
+
+// ─── Canvas ───────────────────────────────────────────────────────────────────
+
+const GRID_MM = 10;  // grid spacing in mm
+const MM_PX = 2;     // base pixels per mm (before scale)
+
+function initCanvas() {
+  const wrap = document.getElementById('canvas-wrap');
+  const gc = document.getElementById('grid-canvas');
+  const mc = document.getElementById('main-canvas');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  gc.width = mc.width = W;
+  gc.height = mc.height = H;
+  canvasOffX = W / 2;
+  canvasOffY = H / 2;
+  drawGrid();
+  redraw();
+}
+
+window.addEventListener('resize', () => {
+  const wrap = document.getElementById('canvas-wrap');
+  const gc = document.getElementById('grid-canvas');
+  const mc = document.getElementById('main-canvas');
+  gc.width = mc.width = wrap.clientWidth;
+  gc.height = mc.height = wrap.clientHeight;
+  drawGrid();
+  redraw();
+});
+
+function worldToCanvas(wx, wy) {
+  return {
+    x: canvasOffX + wx * MM_PX * canvasScale,
+    y: canvasOffY - wy * MM_PX * canvasScale,
+  };
+}
+
+function canvasToWorld(cx, cy) {
+  return {
+    x: (cx - canvasOffX) / (MM_PX * canvasScale),
+    y: -(cy - canvasOffY) / (MM_PX * canvasScale),
+  };
+}
+
+function drawGrid() {
+  const gc = document.getElementById('grid-canvas');
+  const ctx = gc.getContext('2d');
+  const W = gc.width, H = gc.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const step = GRID_MM * MM_PX * canvasScale;
+  if (step < 4) return;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 1;
+
+  const startX = ((canvasOffX % step) + step) % step;
+  for (let x = startX; x < W; x += step) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  const startY = ((canvasOffY % step) + step) % step;
+  for (let y = startY; y < H; y += step) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1;
+  if (canvasOffX >= 0 && canvasOffX <= W) {
+    ctx.beginPath(); ctx.moveTo(canvasOffX, 0); ctx.lineTo(canvasOffX, H); ctx.stroke();
+  }
+  if (canvasOffY >= 0 && canvasOffY <= H) {
+    ctx.beginPath(); ctx.moveTo(0, canvasOffY); ctx.lineTo(W, canvasOffY); ctx.stroke();
+  }
+}
+
+function redraw() {
+  const mc = document.getElementById('main-canvas');
+  const ctx = mc.getContext('2d');
+  ctx.clearRect(0, 0, mc.width, mc.height);
+
+  drawPulleys(ctx);
+  drawBeltPath(ctx);
+  drawSequenceLabels(ctx);
+}
+
+function drawBeltPath(ctx) {
+  firstTangent = null;
+  lastTangent = null;
+
+  for (let i = 0; i < sequence.length - 1; i++) {
+    from = getPulley(sequence[i]);
+    to = getPulley(sequence[i + 1]);
+
+    tVector = getTangentVector(from, to);
+    yScale = 0.5 * tVector.x / Math.sqrt(tVector.x * tVector.x + tVector.y * tVector.y);
+    xScale = -tVector.y / tVector.x;
+    sy = yScale * from.pitchDiameter * (from.flip ? -1 : 1);
+    sx = xScale * sy;
+    ey = yScale * to.pitchDiameter * (to.flip ? -1 : 1);
+    ex = xScale * ey;
+
+    start = worldToCanvas(from.x + sx, from.y + sy);
+    end = worldToCanvas(to.x + ex, to.y + ey);
+    
+    ctx.save();
+    ctx.strokeStyle = 'rgba(245,166,35,0.5)';
+    ctx.lineWidth = 1.5;
+    
+    if (lastTangent != null) {
+      ctx.beginPath();
+      const worldFrom = worldToCanvas(from.x, from.y);
+      const startAngle = Math.atan2(-sy, sx);
+      ctx.arc(worldFrom.x, worldFrom.y, from.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - getArcAngle(lastTangent, tVector), !from.flip);
+      ctx.stroke();
+    }
+    else
+      firstTangent = tVector;
+    lastTangent = tVector;
+
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+  }
+
+  if (isSequenceClosed()) {
+    ctx.beginPath();
+    first = getPulley(sequence[0]);
+    const worldFrom = worldToCanvas(first.x, first.y);
+    const flipM = first.flip ? -1 : 1
+    const startAngle = Math.atan2(-lastTangent.x * flipM, -lastTangent.y * flipM);
+    ctx.arc(worldFrom.x, worldFrom.y, first.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - getArcAngle(firstTangent, lastTangent), first.flip);
+    ctx.stroke();
+  }
+}
+
+function drawPulleys(ctx) {
+  pulleys.forEach(p => {
+    const { x: cx, y: cy } = worldToCanvas(p.x, p.y);
+    const r = Math.max(6, (p.pitchDiameter / 2) * MM_PX * canvasScale);
+    const isSelected = p.id === selectedPulleyId;
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected ? 'rgba(77,158,255,0.15)' : 'rgba(30,33,40,0.9)';
+    ctx.fill();
+    ctx.strokeStyle = isSelected ? '#4d9eff' : '#363a45';
+    ctx.lineWidth = isSelected ? 2 : 1.5;
+    ctx.stroke();
+
+    // Inner hub
+    const hr = Math.max(3, r * 0.25);
+    ctx.beginPath();
+    ctx.arc(cx, cy, hr, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected ? 'rgba(77,158,255,0.4)' : 'rgba(90,98,118,0.5)';
+    ctx.fill();
+
+    // Label
+    ctx.fillStyle = isSelected ? '#4d9eff' : '#8a8f9e';
+    ctx.font = `500 ${Math.max(10, Math.min(13, r * 0.5))}px 'IBM Plex Mono'`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (r > 12) {
+      ctx.fillText(p.name, cx, cy);
+    } else {
+      ctx.fillText(p.name, cx, cy - r - 8);
+    }
+
+    // Diameter label
+    if (r > 18) {
+      ctx.fillStyle = '#555a6a';
+      ctx.font = `10px 'IBM Plex Mono'`;
+      ctx.fillText(`⌀${p.pitchDiameter.toFixed(1)}`, cx, cy + r + 10);
+    }
+  });
+}
+
+function drawSequenceLabels(ctx) {
+  // Show a ×N badge on pulleys visited more than once
+  const visitCount = {};
+  sequence.forEach(s => { visitCount[s] = (visitCount[s] || 0) + 1; });
+  pulleys.forEach(p => {
+    const count = visitCount[p.id] || 0;
+    if (count < 2) return;
+    const { x: cx, y: cy } = worldToCanvas(p.x, p.y);
+    const r = Math.max(6, (p.pitchDiameter / 2) * MM_PX * canvasScale);
+    const label = `×${count}`;
+    ctx.save();
+    ctx.font = `500 10px 'IBM Plex Mono'`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(label).width + 8;
+    const bx = cx + r * 0.7, by = cy - r * 0.7;
+    ctx.fillStyle = 'rgba(14,15,17,0.85)';
+    ctx.beginPath();
+    ctx.roundRect(bx - tw / 2, by - 7, tw, 14, 3);
+    ctx.fill();
+    ctx.fillStyle = '#f5a623';
+    ctx.fillText(label, bx, by);
+    ctx.restore();
+  });
+}
+
+// ─── Canvas interaction ───────────────────────────────────────────────────────
+
+function hitTestPulley(cx, cy) {
+  for (let i = pulleys.length - 1; i >= 0; i--) {
+    const p = pulleys[i];
+    const { x, y } = worldToCanvas(p.x, p.y);
+    const r = Math.max(8, (p.pitchDiameter / 2) * MM_PX * canvasScale);
+    const dx = cx - x, dy = cy - y;
+    if (dx*dx + dy*dy <= r*r) return p;
+  }
+  return null;
+}
+
+function canvasMouseDown(e) {
+  const rect = e.target.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  lastMouse = { x: cx, y: cy };
+
+  if (e.button === 2) { isPanning = true; return; }
+
+  const hit = hitTestPulley(cx, cy);
+  if (hit) {
+    selectPulley(hit.id);
+    isDragging = true;
+    dragTarget = hit;
+  } else {
+    selectPulley(null);
+    isDragging = false;
+    dragTarget = null;
+  }
+}
+
+function canvasMouseMove(e) {
+  const rect = e.target.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const dx = cx - lastMouse.x;
+  const dy = cy - lastMouse.y;
+
+  const w = canvasToWorld(cx, cy);
+  document.getElementById('coord-display').textContent =
+    `x: ${Math.round(w.x)} mm   y: ${Math.round(w.y)} mm`;
+
+  if (isPanning) {
+    canvasOffX += dx;
+    canvasOffY += dy;
+    drawGrid();
+    redraw();
+  } else if (isDragging && dragTarget) {
+    dragTarget.x += dx / (MM_PX * canvasScale);
+    dragTarget.y -= dy / (MM_PX * canvasScale);
+    renderPulleyList();
+    renderPulleyProps();
+    redraw();
+  }
+  lastMouse = { x: cx, y: cy };
+}
+
+function canvasMouseUp(e) {
+  if (isDragging && dragTarget) {
+    dragTarget.x = Math.round(dragTarget.x);
+    dragTarget.y = Math.round(dragTarget.y);
+    renderPulleyList();
+    renderPulleyProps();
+    redraw();
+  }
+  isDragging = false;
+  isPanning = false;
+  dragTarget = null;
+}
+
+function canvasDblClick(e) {
+  const rect = e.target.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const hit = hitTestPulley(cx, cy);
+  if (!hit) {
+    const w = canvasToWorld(cx, cy);
+    addPulley(Math.round(w.x), Math.round(w.y));
+  } else {
+    deletePulley(hit.id);
+  }
+}
+
+function canvasWheel(e) {
+  e.preventDefault();
+  const rect = e.target.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  const factor = e.deltaY < 0 ? 1.1 : 1/1.1;
+  canvasOffX = cx + (canvasOffX - cx) * factor;
+  canvasOffY = cy + (canvasOffY - cy) * factor;
+  canvasScale *= factor;
+  canvasScale = Math.max(0.1, Math.min(10, canvasScale));
+  document.getElementById('zoom-level').textContent = Math.round(canvasScale * 100) + '%';
+  drawGrid();
+  redraw();
+}
+
+function zoom(factor) {
+  const mc = document.getElementById('main-canvas');
+  const cx = mc.width / 2, cy = mc.height / 2;
+  canvasOffX = cx + (canvasOffX - cx) * factor;
+  canvasOffY = cy + (canvasOffY - cy) * factor;
+  canvasScale *= factor;
+  canvasScale = Math.max(0.1, Math.min(10, canvasScale));
+  document.getElementById('zoom-level').textContent = Math.round(canvasScale * 100) + '%';
+  drawGrid();
+  redraw();
+}
+
+function resetView() {
+  canvasScale = 1;
+  const mc = document.getElementById('main-canvas');
+  canvasOffX = mc.width / 2;
+  canvasOffY = mc.height / 2;
+  document.getElementById('zoom-level').textContent = '100%';
+  drawGrid();
+  redraw();
+}
+
+// ─── Export / Import ──────────────────────────────────────────────────────────
+
+function getSystemState() {
+  return { pulleys, belt, sequence };
+}
+
+function exportSystem() {
+  const json = JSON.stringify(getSystemState(), null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'pulley-system.json';
+  a.click();
+}
+
+function importSystem() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const state = JSON.parse(ev.target.result);
+        pulleys = state.pulleys || [];
+        belt = state.belt || { pitch: 5, teeth: 150, length: 750 };
+        sequence = state.sequence || [];
+        pulleyCounter = Math.max(0, ...pulleys.map(p => p.id));
+        selectedPulleyId = null;
+        document.getElementById('belt-pitch').value = belt.pitch;
+        document.getElementById('belt-teeth').value = belt.teeth;
+        document.getElementById('belt-length').value = belt.length;
+        renderPulleyList();
+        renderSequencePickers();
+        renderSequenceList();
+        renderPulleyProps();
+        updateSummary();
+        drawGrid();
+        redraw();
+      } catch { alert('Invalid JSON file.'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function clearAll() {
+  if (pulleys.length > 0 && !confirm('Clear the current system?')) return;
+  pulleys = []; belt = { pitch: 5, teeth: 150, length: 750 };
+  sequence = []; selectedPulleyId = null; pulleyCounter = 0;
+  document.getElementById('belt-pitch').value = 5;
+  document.getElementById('belt-teeth').value = 150;
+  document.getElementById('belt-length').value = 750;
+  document.getElementById('result-box').style.display = 'none';
+  renderPulleyList(); renderSequencePickers(); renderSequenceList();
+  renderPulleyProps(); updateSummary(); drawGrid(); redraw();
+}
+
+// ─── Python export ────────────────────────────────────────────────────────────
+
+function exportPython() {
+  const lines = [
+    '# Auto-generated by Pulley Solver UI',
+    'system = System()',
+    '',
+    '# Pulleys',
+  ];
+  pulleys.forEach(p => {
+    lines.push(`${p.name.toLowerCase()} = Pulley(pitch_diameter=${p.pitchDiameter}, teeth=${p.teeth}, ratio=${p.ratio}, x=${p.x}, y=${p.y}, flip=${p.flip})`);
+    lines.push(`system.add_pulley(${p.name.toLowerCase()})`);
+  });
+  lines.push('');
+  lines.push('# Belt');
+  lines.push(`system.belt = Belt(pitch=${belt.pitch}, teeth=${belt.teeth})`);
+  lines.push('');
+  lines.push('# Sequence');
+  const seqNames = sequence.map(s => {
+    const p = getPulley(s);
+    return p ? p.name.toLowerCase() : '?';
+  });
+  lines.push(`system.sequence = [${seqNames.join(', ')}]`);
+  lines.push('');
+  lines.push('# Solve');
+  const unknown = document.getElementById('solve-unknown').value;
+  if (unknown === 'ratio_only') {
+    lines.push('system.unknown_index = "RATIO_ONLY"  # solve for absolute scale using ratios + belt length');
+  } else {
+    lines.push('system.solve()');
+  }
+
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const msg = document.getElementById('py-copy-msg');
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 2000);
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+window.addEventListener('load', () => {
+  initCanvas();
+  renderPulleyList();
+  renderSequencePickers();
+  renderSequenceList();
+  updateSummary();
+
+  // Demo pulleys
+  addPulley(0, 0);
+  addPulley(100, 0);
+  selectPulley(null);
+  selectedPulleyId = null;
+  renderPulleyList();
+  renderPulleyProps();
+  redraw();
+});
+</script>
+</body>
+</html>
