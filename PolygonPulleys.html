@@ -139,25 +139,6 @@
   .field select option { background: var(--bg3); }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-  /* Add pulley button */
-  .pulley-btn {
-    width: 100%;
-    background: none;
-    border: 1px dashed var(--border2);
-    color: var(--text3);
-    font-family: var(--mono);
-    font-size: 11px;
-    padding: 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-top: 8px;
-    transition: border-color 0.15s, color 0.15s;
-    letter-spacing: 0.02em;
-  }
-  .pulley-btn:hover { border-color: var(--hover-color); color: var(--hover-color); }
-  .add-btn {--hover-color: var(--accent);}
-  .remove-btn {--hover-color: var(--red);}
-
   /* Sequence tags */
   .sequence-container {
     list-style: none;
@@ -290,6 +271,38 @@
     letter-spacing: 0.04em;
     pointer-events: none;
   }
+
+  /* Pulley props */
+  .pulley-btn {
+    width: 100%;
+    background: none;
+    border: 1px dashed var(--border2);
+    color: var(--text3);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: border-color 0.15s, color 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .pulley-btn:hover { border-color: var(--hover-color); color: var(--hover-color); }
+  .add-btn {--hover-color: var(--accent);}
+  .remove-btn {--hover-color: var(--red);}
+  
+  .lock-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text3);
+    padding: 3px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .lock-btn:hover{ border-color: var(--hover-color); color: var(--hover-color); }
+  .lock-btn[active="true"]{ border-color: var(--accent)}
 
   /* ── Right panel ── */
   .right-panel {
@@ -602,6 +615,7 @@ let pulleys = [];
 let belt = { pitch: 5, teeth: 150, length: 750 };
 let sequence = [];
 let selectedPulleyId = null;
+let baseRatioPulley = null;
 let pulleyCounter = 0;
 let seqDragItem = null;
 
@@ -619,14 +633,16 @@ let placingMode = true;
 
 function makePulley(x, y) {
   pulleyCounter++;
+  const base = getPulley(baseRatioPulley);
+  const teeth = base ? (base.teeth / base.ratio) : (pulleys.length == 0 ? 30 : pulleys[0].teeth / pulleys[0].ratio);
   return {
     id: pulleyCounter,
     name: 'P' + pulleyCounter,
     x: x,
     y: y,
-    pitchDiameter: (30 * belt.pitch) / Math.PI,
-    teeth: 30,
-    ratio: 1.0,
+    pitchDiameter: (teeth * belt.pitch) / Math.PI,
+    teeth: teeth,
+    ratio: 1,
     flip: false,
   };
 }
@@ -641,7 +657,6 @@ function updateBelt() {
   pulleys.forEach(p => onTeethChange(p.id, p.teeth));
   updateSummary();
   redraw();
-  //TODO: make ratio disabled for pulley 1 OR make locked pulley for reference; 
 }
 
 function updateBeltFromLength() {
@@ -670,6 +685,7 @@ function deletePulley(id, event) {
   pulleys = pulleys.filter(p => p.id !== id);
   sequence = sequence.filter(s => s !== id);
   if (selectedPulleyId === id) selectedPulleyId = null;
+  if (baseRatioPulley === id) baseRatioPulley = null;
   renderSequencePickers();
   renderSequenceList();
   renderPulleyProps();
@@ -719,9 +735,10 @@ function renderPulleyProps() {
     <div class="prop-row"><label>ratio</label>
       <input type="number" id="prop-ratio-${p.id}" value="${p.ratio.toFixed(2)}" min="0.01" step="0.01"
         onchange="onRatioChange(${p.id}, this.value)">
+      <button class="lock-btn" active="${p.id == baseRatioPulley}" onclick="lockRatio(this, ${p.id})">${p.id == baseRatioPulley ? "🔒" : "🔓"}</button>
     </div>
     <div style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:6px;line-height:1.5;">
-      ratio scales pitch dia. relative to<br>another pulley with ratio defined
+      lock to scale all other pulleys relative<br>to this one; only one pulley may be locked
     </div>
     <div class="toggle-row" style="margin-top:4px;">
       <label>flip contact</label>
@@ -739,11 +756,7 @@ function onPitchDiameterChange(id, value) {
   if (!p) return;
   p.pitchDiameter = parseFloat(value) || p.pitchDiameter;
   p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch;
-  p.ratio = p.pitchDiameter / pulleys[0].pitchDiameter * pulleys[0].ratio;
-  const refPulley = pulleys.find(q => q.id !== id && q.ratio !== 1.0);
-  if (refPulley) {
-    p.ratio = p.pitchDiameter / refPulley.pitchDiameter * refPulley.ratio;
-  }
+  syncRatios(p);
   syncPropFields(p);
   redraw();
 }
@@ -753,11 +766,7 @@ function onTeethChange(id, value) {
   if (!p) return;
   p.teeth = parseInt(value) || p.teeth;
   p.pitchDiameter = (p.teeth * belt.pitch) / Math.PI;
-  p.ratio = p.pitchDiameter / pulleys[0].pitchDiameter * pulleys[0].ratio;
-  const refPulley = pulleys.find(q => q.id !== id && q.ratio !== 1.0);
-  if (refPulley) {
-    p.ratio = p.pitchDiameter / refPulley.pitchDiameter * refPulley.ratio;
-  }
+  syncRatios(p);
   syncPropFields(p);
   redraw();
 }
@@ -766,16 +775,51 @@ function onRatioChange(id, value) {
   const p = getPulley(id);
   if (!p) return;
   const newRatio = parseFloat(value) || p.ratio;
-  const refPulley = pulleys.find(q => q.id !== id);
-  if (refPulley && refPulley.ratio > 0) {
-    p.pitchDiameter = (newRatio / refPulley.ratio) * refPulley.pitchDiameter;
-    p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch; // float — derived
-  }
-  p.ratio = newRatio;
+  syncRatios(p, newRatio);
   syncPropFields(p);
   redraw();
 }
 
+function lockRatio(button, id) {
+  if (id == baseRatioPulley) {
+    baseRatioPulley = null;
+    button.textContent = "🔓";
+    button.setAttribute("active", false);
+  } else {
+    baseRatioPulley = id;
+    button.textContent = "🔒";
+    button.setAttribute("active", true);
+  }
+}
+
+function syncRatios(p, value) {
+  if (pulleys.length < 2) return;
+  const base = baseRatioPulley ? getPulley(baseRatioPulley) : pulleys.find(_p => _p.id != p.id);
+  if (p.id == baseRatioPulley) {
+    if (value) p.ratio = value;
+    scaleAllWithRatio(p);
+  }
+  else if (!value) {
+    p.ratio = p.pitchDiameter / base.pitchDiameter * base.ratio;
+  } else {
+    if (base && base.ratio > 0) {
+      p.pitchDiameter = (value / base.ratio) * base.pitchDiameter;
+      p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch;
+    }
+    p.ratio = value;
+  }
+}
+
+function scaleAllWithRatio(p) {
+  if (!p) return;
+  pulleys.forEach(_p => {
+    if (p != _p) {
+      _p.pitchDiameter = p.pitchDiameter * (_p.ratio / p.ratio);
+      _p.teeth = p.teeth * (_p.ratio / p.ratio);
+    }
+  });
+}
+ 
 function syncPropFields(p) {
   const pdEl = document.getElementById(`prop-pd-${p.id}`);
   const teethEl = document.getElementById(`prop-teeth-${p.id}`);
