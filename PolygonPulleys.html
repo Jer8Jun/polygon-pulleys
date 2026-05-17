@@ -611,6 +611,7 @@ let sequence = [];
 let selectedPulleyId = null;
 let baseRatioPulley = null;
 let pulleyCounter = 0;
+let currentBeltLength = 0;
 let seqDragItem = null;
 
 // Canvas state
@@ -920,6 +921,7 @@ function renderSequencePickers() {
 function addPickerToSequence() {
   const sel = document.getElementById('seq-select');
   const id = parseInt(sel.value);
+  addToSequence(id);
 }
 
 function addToSequence(id) {
@@ -1041,7 +1043,7 @@ function isSequenceClosed() {
 
 function updateSummary() {
   document.getElementById('summary-pulleys').textContent = pulleys.length;
-  document.getElementById('summary-belt').textContent = belt.length.toFixed(1) + ' mm';
+  document.getElementById('summary-belt').textContent = currentBeltLength.toFixed(2) + ' mm';
 
   if (pulleys.length < 2) {
     showStatus('need ≥2 pulleys', 'warn'); return;
@@ -1133,11 +1135,13 @@ function redraw() {
 
   drawPulleys(ctx);
   drawBeltPath(ctx);
+  updateSummary();
 }
 
 function drawBeltPath(ctx) {
   firstTangent = null;
   lastTangent = null;
+  currentBeltLength = 0;
 
   for (let i = 0; i < sequence.length - 1; i++) {
     from = getPulley(sequence[i]);
@@ -1153,6 +1157,7 @@ function drawBeltPath(ctx) {
 
     start = worldToCanvas(from.x + sx, from.y + sy);
     end = worldToCanvas(to.x + ex, to.y + ey);
+    currentBeltLength += Math.sqrt(tVector.x * tVector.x + tVector.y * tVector.y);
     
     ctx.save();
     ctx.strokeStyle = 'rgba(245,166,35,0.5)';
@@ -1162,7 +1167,9 @@ function drawBeltPath(ctx) {
       ctx.beginPath();
       const worldFrom = worldToCanvas(from.x, from.y);
       const startAngle = Math.atan2(-sy, sx);
-      ctx.arc(worldFrom.x, worldFrom.y, from.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - getArcAngle(lastTangent, tVector), !from.flip);
+      const arcAngle = getArcAngle(lastTangent, tVector);
+      currentBeltLength += arcAngle * from.pitchDiameter * 0.5;
+      ctx.arc(worldFrom.x, worldFrom.y, from.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - arcAngle, !from.flip);
       ctx.stroke();
     }
     else
@@ -1181,9 +1188,13 @@ function drawBeltPath(ctx) {
     const worldFrom = worldToCanvas(first.x, first.y);
     const flipM = first.flip ? -1 : 1
     const startAngle = Math.atan2(-lastTangent.x * flipM, -lastTangent.y * flipM);
-    ctx.arc(worldFrom.x, worldFrom.y, first.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - getArcAngle(firstTangent, lastTangent), first.flip);
+    const arcAngle = getArcAngle(firstTangent, lastTangent);
+    currentBeltLength += arcAngle * first.pitchDiameter * 0.5;
+    ctx.arc(worldFrom.x, worldFrom.y, first.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - arcAngle, first.flip);
     ctx.stroke();
   }
+
+  if (isNaN(currentBeltLength)) currentBeltLength = 0;
 }
 
 function drawPulleys(ctx) {
