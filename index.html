@@ -572,10 +572,8 @@
       <div id="ratio-only-info" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:4px;">
         <div style="font-family:var(--mono);font-size:10px;color:var(--text3);margin-bottom:6px;letter-spacing:0.04em;">RATIO-ONLY MODE</div>
         <div style="font-size:11px;color:var(--text2);line-height:1.6;">
-          Diameters and teeth are ignored. The solver uses only the <span style="color:var(--amber);">ratio</span> field on each pulley plus the <span style="color:var(--amber);">belt length</span> to find a self-consistent set of absolute diameters.<br><br>
-          Set one pulley's ratio to <span style="font-family:var(--mono);color:var(--accent);">1.0</span> as the reference. Set others relative to it (e.g. 2.0 = twice as large). The solver scales all diameters and teeth to fit the belt.
+          Diameters and teeth are ignored. The solver uses only the <span style="color:var(--amber);">ratio</span> field on each pulley plus the <span style="color:var(--amber);">belt length</span> to find a self-consistent set of absolute diameters that preserves the ratio of each pulley.
         </div>
-        <div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--text3);">passed to solver as: unknown_index = RATIO_ONLY</div>
       </div>
       <button class="solve-btn" onclick="runSolver()">▶ SOLVE</button>
       <button class="pulley-btn add-btn" active="false" id="continuous-solve-btn" onclick="toggleContinuousSolving(this)">continuous solving</button>
