@@ -1028,10 +1028,10 @@ function displaySolution(p, unknown, value) {
 
   showStatus('solved', 'ok', true);
   displayResult(value, "mm");
-  if (unknown == "pulley_diameter") {
+  if (unknown == "pulley_diameter" || unknown == "ratio_only") {
     p.pitchDiameter = value;
     p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch;
-    syncRatios(p);
+    if (unknown == "pulley_diameter") syncRatios(p);
     syncPropFields(p);
   }
   renderPulleyProps();
