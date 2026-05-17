@@ -288,8 +288,10 @@
     letter-spacing: 0.02em;
   }
   .pulley-btn:hover { border-color: var(--hover-color); color: var(--hover-color); }
+  .pulley-btn[active="true"]{ border-color: var(--amber); color: var(--amber);}
   .add-btn {--hover-color: var(--accent);}
   .remove-btn {--hover-color: var(--red);}
+  
   
   .lock-btn {
     background: none;
@@ -502,13 +504,11 @@
         <select id="seq-select">
           <option value="">— select pulley —</option>
         </select>
-        <button class="seq-add-btn" onclick="addToSequence()">add</button>
+        <button class="seq-add-btn" onclick="addPickerToSequence()">add</button>
       </div>
-      <div style="margin-top:10px;display:flex;gap:6px;">
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px;">
+        <button class="pulley-btn add-btn" active="false" id="select-seq-btn" style="margin:0;flex:1;" onclick="toggleCanvasSelect()">select from canvas</button>
         <button class="pulley-btn remove-btn" style="margin:0;flex:1;" onclick="clearSequence()">clear sequence</button>
-      </div>
-      <div id="flip-list">
-        <div class="no-selection">add pulleys to configure</div>
       </div>
     </div>
   </div>
@@ -547,6 +547,13 @@
   <div class="right-panel">
     <div class="right-panel-header">solve</div>
     <div class="right-scroll">
+      <div class="section-label">current system</div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text3);line-height:2;">
+        <div>pulleys: <span style="color:var(--text2);" id="summary-pulleys">0</span></div>
+        <div>belt length: <span style="color:var(--text2);" id="summary-belt">—</span></div>
+      </div>
+      <div class="divider"></div>
+      
       <div class="solve-row">
         <label>unknown to solve</label>
         <select id="solve-unknown" onchange="updateSolveUI()">
@@ -587,22 +594,9 @@
       </div>
 
       <div class="status-row">
-        <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">system status</span>
-        <span class="badge warn" id="status-badge">needs setup</span>
+        <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">status</span>
+        <span class="badge err" id="status-badge">enable js</span>
       </div>
-
-      <div class="divider"></div>
-      <div class="section-label">system summary</div>
-      <div style="font-family:var(--mono);font-size:11px;color:var(--text3);line-height:2;">
-        <div>pulleys: <span style="color:var(--text2);" id="summary-pulleys">0</span></div>
-        <div>belt length: <span style="color:var(--text2);" id="summary-belt">—</span></div>
-        <div>sequence steps: <span style="color:var(--text2);" id="summary-seq">0</span></div>
-      </div>
-
-      <div class="divider"></div>
-      <div class="section-label">export as python</div>
-      <button class="header-btn" style="width:100%;font-size:11px;" onclick="exportPython()">copy system.py snippet</button>
-      <div id="py-copy-msg" style="font-family:var(--mono);font-size:10px;color:var(--green);margin-top:6px;display:none;">copied to clipboard ✓</div>
     </div>
   </div>
 
@@ -627,7 +621,7 @@ let isDragging = false;
 let dragTarget = null;
 let isPanning = false;
 let lastMouse = { x: 0, y: 0 };
-let placingMode = true;
+let sequenceSelect = false;
 
 // ─── Pulley model ─────────────────────────────────────────────────────────────
 
@@ -923,13 +917,22 @@ function renderSequencePickers() {
   tgt.innerHTML = '<option value="">— select —</option>' + names;
 }
 
-function addToSequence() {
+function addPickerToSequence() {
   const sel = document.getElementById('seq-select');
   const id = parseInt(sel.value);
+}
+
+function addToSequence(id) {
   if (!id) return;
   sequence.push(id);
   renderSequenceList();
   updateSummary();
+}
+
+function toggleCanvasSelect() {
+  sequenceSelect = !sequenceSelect;
+  const button = document.getElementById("select-seq-btn");
+  button.setAttribute("active", sequenceSelect);
 }
 
 function clearSequence() {
@@ -1039,7 +1042,6 @@ function isSequenceClosed() {
 function updateSummary() {
   document.getElementById('summary-pulleys').textContent = pulleys.length;
   document.getElementById('summary-belt').textContent = belt.length.toFixed(1) + ' mm';
-  document.getElementById('summary-seq').textContent = sequence.length;
 
   if (pulleys.length < 2) {
     showStatus('need ≥2 pulleys', 'warn'); return;
@@ -1131,7 +1133,6 @@ function redraw() {
 
   drawPulleys(ctx);
   drawBeltPath(ctx);
-  drawSequenceLabels(ctx);
 }
 
 function drawBeltPath(ctx) {
@@ -1222,34 +1223,8 @@ function drawPulleys(ctx) {
     if (r > 18) {
       ctx.fillStyle = '#555a6a';
       ctx.font = `10px 'IBM Plex Mono'`;
-      ctx.fillText(`⌀${p.pitchDiameter.toFixed(1)}`, cx, cy + r + 10);
+      ctx.fillText(`⌀${p.pitchDiameter.toFixed(2)}`, cx, cy + r + 10);
     }
-  });
-}
-
-function drawSequenceLabels(ctx) {
-  // Show a ×N badge on pulleys visited more than once
-  const visitCount = {};
-  sequence.forEach(s => { visitCount[s] = (visitCount[s] || 0) + 1; });
-  pulleys.forEach(p => {
-    const count = visitCount[p.id] || 0;
-    if (count < 2) return;
-    const { x: cx, y: cy } = worldToCanvas(p.x, p.y);
-    const r = Math.max(6, (p.pitchDiameter / 2) * MM_PX * canvasScale);
-    const label = `×${count}`;
-    ctx.save();
-    ctx.font = `500 10px 'IBM Plex Mono'`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const tw = ctx.measureText(label).width + 8;
-    const bx = cx + r * 0.7, by = cy - r * 0.7;
-    ctx.fillStyle = 'rgba(14,15,17,0.85)';
-    ctx.beginPath();
-    ctx.roundRect(bx - tw / 2, by - 7, tw, 14, 3);
-    ctx.fill();
-    ctx.fillStyle = '#f5a623';
-    ctx.fillText(label, bx, by);
-    ctx.restore();
   });
 }
 
@@ -1276,8 +1251,12 @@ function canvasMouseDown(e) {
 
   const hit = hitTestPulley(cx, cy);
   if (hit) {
+    if (sequenceSelect) {
+      if (hit.id != sequence[sequence.length - 1]) addToSequence(hit.id);
+      if (isSequenceClosed()) toggleCanvasSelect();
+    } else
+      isDragging = true
     selectPulley(hit.id);
-    isDragging = true;
     dragTarget = hit;
   } else {
     selectPulley(null);
