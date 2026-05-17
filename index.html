@@ -820,9 +820,10 @@ function updateProp(id, key, value) {
   const p = getPulley(id);
   if (!p) return;
   p[key] = value;
-  renderSequencePickers();
-  renderSequenceList();
-  onSystemChange();
+  if (key == "name") {
+    renderSequencePickers();
+    renderSequenceList();
+  } else onSystemChange();
 }
 
 function updatePropNum(id, key, value) {
@@ -850,11 +851,11 @@ function getTangentVector(from, to) {
   return {x: dx, y: dy};
 }
 
-function getArcAngle(fromTangent, toTangent) {
+function getArcAngle(fromTangent, toTangent, flip) {
   const dot = fromTangent.x * toTangent.x + fromTangent.y * toTangent.y;
   const mag = Math.sqrt((fromTangent.x * fromTangent.x + fromTangent.y * fromTangent.y) * (toTangent.x * toTangent.x + toTangent.y * toTangent.y));
   const angle = Math.acos(dot / mag);
-  return (fromTangent.x * toTangent.y - fromTangent.y * toTangent.x) < 0 ? angle : (2 * Math.PI - angle);
+  return (((fromTangent.x * toTangent.y - fromTangent.y * toTangent.x) < 0) != flip) ? angle : (2 * Math.PI - angle);
 }
 
 // ─── Sequence management ──────────────────────────────────────────────────────
@@ -1010,12 +1011,13 @@ function recalculateBeltLength() {
     tVector = getTangentVector(from, to);
     currentBeltLength += Math.sqrt(tVector.x * tVector.x + tVector.y * tVector.y);
 
-    if (lastTangent != null) currentBeltLength += getArcAngle(lastTangent, tVector) * from.pitchDiameter * 0.5;
+    if (lastTangent != null) currentBeltLength += getArcAngle(lastTangent, tVector, from.flip) * from.pitchDiameter * 0.5;
     else firstTangent = tVector;
     lastTangent = tVector;
   }
 
-  currentBeltLength += getArcAngle(firstTangent, lastTangent) * getPulley(sequence[0]).pitchDiameter * 0.5;
+  const first = getPulley(sequence[0]);
+  currentBeltLength += getArcAngle(lastTangent, firstTangent, first.flip) * first.pitchDiameter * 0.5;
 }
 
 function displaySolution(p, unknown, value) {
@@ -1243,10 +1245,11 @@ function drawBeltPath(ctx) {
     if (lastTangent != null) {
       ctx.beginPath();
       const worldFrom = worldToCanvas(from.x, from.y);
+      const sign = from.flip ? -1 : 1;
       const startAngle = Math.atan2(-sy, sx);
-      const arcAngle = getArcAngle(lastTangent, tVector);
+      const arcAngle = getArcAngle(lastTangent, tVector, from.flip);
       currentBeltLength += arcAngle * from.pitchDiameter * 0.5;
-      ctx.arc(worldFrom.x, worldFrom.y, from.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - arcAngle, !from.flip);
+      ctx.arc(worldFrom.x, worldFrom.y, from.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - sign * arcAngle, !from.flip);
       ctx.stroke();
     }
     else
@@ -1263,11 +1266,11 @@ function drawBeltPath(ctx) {
     ctx.beginPath();
     first = getPulley(sequence[0]);
     const worldFrom = worldToCanvas(first.x, first.y);
-    const flipM = first.flip ? -1 : 1
-    const startAngle = Math.atan2(-lastTangent.x * flipM, -lastTangent.y * flipM);
-    const arcAngle = getArcAngle(firstTangent, lastTangent);
+    const sign = first.flip ? -1 : 1;
+    const startAngle = Math.atan2(-lastTangent.x * sign, -lastTangent.y * sign);
+    const arcAngle = getArcAngle(lastTangent, firstTangent, first.flip);
     currentBeltLength += arcAngle * first.pitchDiameter * 0.5;
-    ctx.arc(worldFrom.x, worldFrom.y, first.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle - arcAngle, first.flip);
+    ctx.arc(worldFrom.x, worldFrom.y, first.pitchDiameter * 0.5 * MM_PX * canvasScale, startAngle, startAngle + sign * arcAngle, first.flip);
     ctx.stroke();
   }
 
