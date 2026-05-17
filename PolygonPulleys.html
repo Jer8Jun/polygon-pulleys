@@ -316,16 +316,6 @@
     flex-direction: column;
     overflow: hidden;
   }
-  .right-panel-header {
-    padding: 12px 14px 8px;
-    border-bottom: 1px solid var(--border);
-    font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--text3);
-    text-transform: uppercase;
-    flex-shrink: 0;
-  }
   .right-scroll { overflow-y: auto; flex: 1; padding: 12px 14px; }
   .right-scroll::-webkit-scrollbar { width: 4px; }
   .right-scroll::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
@@ -502,7 +492,7 @@
       </ol>
       <div class="seq-picker">
         <select id="seq-select">
-          <option value="">— select pulley —</option>
+          <option value="" selected disabled hidden>— select pulley —</option>
         </select>
         <button class="seq-add-btn" onclick="addPickerToSequence()">add</button>
       </div>
@@ -545,30 +535,31 @@
 
   <!-- Right Panel -->
   <div class="right-panel">
-    <div class="right-panel-header">solve</div>
     <div class="right-scroll">
       <div class="section-label">current system</div>
       <div style="font-family:var(--mono);font-size:11px;color:var(--text3);line-height:2;">
         <div>pulleys: <span style="color:var(--text2);" id="summary-pulleys">0</span></div>
         <div>belt length: <span style="color:var(--text2);" id="summary-belt">—</span></div>
       </div>
-      <div class="divider"></div>
+      <div class="status-row">
+        <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">status</span>
+        <span class="badge err" id="status-badge">enable js</span>
+      </div>
       
+      <div class="section-label">solver</div>
       <div class="solve-row">
         <label>unknown to solve</label>
         <select id="solve-unknown" onchange="updateSolveUI()">
-          <option value="belt_length">belt length</option>
+          <option value="" selected disabled hidden>— select unknown —</option>
           <option value="pulley_position">pulley position</option>
-          <option value="pulley_diameter">pulley diameter</option>
-          <option value="pulley_teeth">pulley teeth</option>
-          <option value="pulley_ratio">pulley ratio</option>
+          <option value="pulley_diameter">pulley diameter/teeth</option>
           <option value="ratio_only">ratio-only system</option>
         </select>
       </div>
       <div class="solve-row" id="solve-target-row" style="display:none;">
         <label>target pulley</label>
         <select id="solve-target-pulley">
-          <option value="">— select —</option>
+          <option value="" selected disabled hidden>— select —</option>
         </select>
       </div>
       <div class="solve-row" id="solve-axis-row" style="display:none;">
@@ -587,16 +578,17 @@
         <div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--text3);">passed to solver as: unknown_index = RATIO_ONLY</div>
       </div>
       <button class="solve-btn" onclick="runSolver()">▶ SOLVE</button>
+      <button class="pulley-btn add-btn" active="false" id="continuous-solve-btn" onclick="toggleContinuousSolving(this)">continuous solving</button>
 
       <div class="result-box" id="result-box" style="display:none;">
         <div class="result-label" id="result-label">result</div>
         <div class="result-value" id="result-value">—</div>
       </div>
-
       <div class="status-row">
-        <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">status</span>
-        <span class="badge err" id="status-badge">enable js</span>
+        <span style="color:var(--text3);font-family:var(--mono);font-size:10px;">solver</span>
+        <span class="badge err" id="result-badge">enable js</span>
       </div>
+      
     </div>
   </div>
 
@@ -623,6 +615,7 @@ let dragTarget = null;
 let isPanning = false;
 let lastMouse = { x: 0, y: 0 };
 let sequenceSelect = false;
+let continuousSolving = false;
 
 // ─── Pulley model ─────────────────────────────────────────────────────────────
 
@@ -651,7 +644,7 @@ function updateBelt() {
   document.getElementById('belt-length').value = belt.length.toFixed(2);
   pulleys.forEach(p => onTeethChange(p.id, p.teeth));
   updateSummary();
-  redraw();
+  onSystemChange();
 }
 
 function updateBeltFromLength() {
@@ -660,6 +653,7 @@ function updateBeltFromLength() {
   belt.teeth = belt.length / belt.pitch;
   document.getElementById('belt-teeth').value = belt.teeth.toFixed(2);
   updateSummary();
+  onSystemChange();
 }
 
 // ─── Pulley management ────────────────────────────────────────────────────────
@@ -685,7 +679,7 @@ function deletePulley(id, event) {
   renderSequenceList();
   renderPulleyProps();
   updateSummary();
-  redraw();
+  onSystemChange();
 }
 
 function selectPulley(id) {
@@ -714,10 +708,10 @@ function renderPulleyProps() {
       <input type="text" value="${p.name}" onchange="updateProp(${p.id},'name',this.value)">
     </div>
     <div class="prop-row"><label>x (mm)</label>
-      <input type="number" id="prop-x-${p.id}" value="${Math.round(p.x)}" onchange="updatePropNum(${p.id},'x',this.value)">
+      <input type="number" id="prop-x-${p.id}" value="${p.x.toFixed(2)}" onchange="updatePropNum(${p.id},'x',this.value)">
     </div>
     <div class="prop-row"><label>y (mm)</label>
-      <input type="number" id="prop-y-${p.id}" value="${Math.round(p.y)}" onchange="updatePropNum(${p.id},'y',this.value)">
+      <input type="number" id="prop-y-${p.id}" value="${p.y.toFixed(2)}" onchange="updatePropNum(${p.id},'y',this.value)">
     </div>
     <div class="prop-row"><label>pitch dia. (mm)</label>
       <input type="number" id="prop-pd-${p.id}" value="${p.pitchDiameter.toFixed(2)}" min="0.1" step="0.5"
@@ -753,7 +747,7 @@ function onPitchDiameterChange(id, value) {
   p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch;
   syncRatios(p);
   syncPropFields(p);
-  redraw();
+  onSystemChange();
 }
 
 function onTeethChange(id, value) {
@@ -763,7 +757,7 @@ function onTeethChange(id, value) {
   p.pitchDiameter = (p.teeth * belt.pitch) / Math.PI;
   syncRatios(p);
   syncPropFields(p);
-  redraw();
+  onSystemChange();
 }
 
 function onRatioChange(id, value) {
@@ -772,7 +766,7 @@ function onRatioChange(id, value) {
   const newRatio = parseFloat(value) || p.ratio;
   syncRatios(p, newRatio);
   syncPropFields(p);
-  redraw();
+  onSystemChange();
 }
 
 function lockRatio(button, id) {
@@ -810,7 +804,7 @@ function scaleAllWithRatio(p) {
   pulleys.forEach(_p => {
     if (p != _p) {
       _p.pitchDiameter = p.pitchDiameter * (_p.ratio / p.ratio);
-      _p.teeth = p.teeth * (_p.ratio / p.ratio);
+      _p.teeth = (_p.pitchDiameter * Math.PI) / belt.pitch;
     }
   });
 }
@@ -830,14 +824,14 @@ function updateProp(id, key, value) {
   p[key] = value;
   renderSequencePickers();
   renderSequenceList();
-  redraw();
+  onSystemChange();
 }
 
 function updatePropNum(id, key, value) {
   const p = getPulley(id);
   if (!p) return;
   p[key] = parseFloat(value) || 0;
-  redraw();
+  onSystemChange();
 }
 
 function getTangentVector(from, to) {
@@ -898,6 +892,7 @@ function setupSequenceDrag() {
     sequence = Array.from(list.children).map(li => li.value);
     updateSummary();
     renderSequenceList();
+    onSystemChange();
   });
   list.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -914,8 +909,8 @@ function renderSequencePickers() {
   const sel = document.getElementById('seq-select');
   const tgt = document.getElementById('solve-target-pulley');
   const names = pulleys.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  sel.innerHTML = '<option value="">— select pulley —</option>' + names;
-  tgt.innerHTML = '<option value="">— select —</option>' + names;
+  sel.innerHTML = '<option value="" selected disabled hidden>— select pulley —</option>' + names;
+  tgt.innerHTML = '<option value="" selected disabled hidden>— select —</option>' + names;
 }
 
 function addPickerToSequence() {
@@ -929,6 +924,7 @@ function addToSequence(id) {
   sequence.push(id);
   renderSequenceList();
   updateSummary();
+  onSystemChange();
 }
 
 function toggleCanvasSelect() {
@@ -941,6 +937,7 @@ function clearSequence() {
   sequence = [];
   renderSequenceList();
   updateSummary();
+  onSystemChange();
 }
 
 function renderSequenceList() {
@@ -965,57 +962,137 @@ function removeFromSequence(index) {
   sequence.splice(index, 1);
   renderSequenceList();
   updateSummary();
-  redraw();
+  onSystemChange();
 }
 
 // ─── Solve UI ─────────────────────────────────────────────────────────────────
 
+function onSystemChange() {
+  if (continuousSolving) runSolver();
+  else showStatus("unsolved", "warn", true);
+  redraw();
+}
+
 function updateSolveUI() {
   const unknown = document.getElementById('solve-unknown').value;
   const isRatioOnly = unknown === 'ratio_only';
-  const needsTarget = !isRatioOnly && ['pulley_position','pulley_diameter','pulley_teeth','pulley_ratio'].includes(unknown);
+  const needsTarget = !isRatioOnly && ['pulley_position','pulley_diameter'].includes(unknown);
   const needsAxis = unknown === 'pulley_position';
   document.getElementById('solve-target-row').style.display = needsTarget ? 'block' : 'none';
   document.getElementById('solve-axis-row').style.display = needsAxis ? 'block' : 'none';
   document.getElementById('ratio-only-info').style.display = isRatioOnly ? 'block' : 'none';
 }
 
+function setUnknown(p, value, unknown, axis) {
+  switch(unknown) {
+    case "pulley_position":
+      if (axis == "x") p.x = value;
+      if (axis == "y") p.y = value;
+      break;
+    case "pulley_diameter":
+      p.pitchDiameter = value;
+      break;
+    case "ratio_only":
+      p = pulleys[0];
+      p.pitchDiameter = value;
+      scaleAllWithRatio(p, value);
+      break;
+  }
+}
+
+function recalculateBeltLength() {
+  firstTangent = null;
+  lastTangent = null;
+  currentBeltLength = 0;
+
+  for (let i = 0; i < sequence.length - 1; i++) {
+    from = getPulley(sequence[i]);
+    to = getPulley(sequence[i + 1]);
+
+    tVector = getTangentVector(from, to);
+    currentBeltLength += Math.sqrt(tVector.x * tVector.x + tVector.y * tVector.y);
+
+    if (lastTangent != null) currentBeltLength += getArcAngle(lastTangent, tVector) * from.pitchDiameter * 0.5;
+    else firstTangent = tVector;
+    lastTangent = tVector;
+  }
+
+  currentBeltLength += getArcAngle(firstTangent, lastTangent) * getPulley(sequence[0]).pitchDiameter * 0.5;
+}
+
+function displaySolution(p, unknown, value) {
+  if (value < 0) {
+    if (unknown == "pulley_diameter") {
+      p.flip = !p.flip;
+      value *= -1;
+    } else if (unknown == "ratio_only") return false;
+  }
+
+  showStatus('solved', 'ok', true);
+  displayResult(value, "mm");
+  if (unknown == "pulley_diameter") {
+    p.pitchDiameter = value;
+    p.teeth = (p.pitchDiameter * Math.PI) / belt.pitch;
+    syncRatios(p);
+    syncPropFields(p);
+  }
+  renderPulleyProps();
+  return true;
+}
+
 function runSolver() {
-  // ── WIRING POINT ──────────────────────────────────────────────────────────
-  // Replace this block with your actual solver call.
-  // The system state is available as:
-  //   pulleys  →  array of pulley objects (see makePulley())
-  //   belt     →  { pitch, teeth, length }
-  //   sequence →  array of { pulleyId, flip }
-  //   unknownType  →  string from solve-unknown select
-  //   targetPulleyId  →  id of target pulley (if applicable)
-  //
-  // Example (when solver is wired):
-  //   const system = buildSystemForSolver();
-  //   system.solve();
-  //   displayResult(system.result, system.unit);
-  // ─────────────────────────────────────────────────────────────────────────
+  if (pulleys.length < 2 || !isSequenceClosed()) {
+    showStatus('system not defined', 'warn', true);
+    return;
+  }
 
   const unknown = document.getElementById('solve-unknown').value;
   const targetId = parseInt(document.getElementById('solve-target-pulley').value);
-  const axis = document.getElementById('solve-axis').value; // 'x' or 'y', relevant when unknown === 'pulley_position'
+  const axis = document.getElementById('solve-axis').value;
 
-  if (pulleys.length < 2) {
-    showStatus('need ≥2 pulleys', 'err');
-    return;
+  let guess = 0;
+  let p = getPulley(targetId);
+  switch (unknown) {
+    case "pulley_position":
+      if (!p) return false;
+      if (axis == "x") guess = p.x;
+      if (axis == "y") guess = p.y;
+      break;
+    case "pulley_diameter":
+      if (!p) return false;
+      guess = p.pitchDiameter;
+      break;
+    case "ratio_only":
+      p = pulleys[0];
+      guess = p.pitchDiameter;
+      break;
   }
-  if (!isSequenceClosed()) {
-    showStatus('sequence not closed', 'warn');
-    return;
+  const initialValue = guess;
+
+  for (let i = 0; i < 100; i++) {
+    setUnknown(p, guess, unknown, axis);
+    recalculateBeltLength();
+    const atGuess = belt.length - currentBeltLength;
+
+    if (Math.abs(atGuess) < 0.01) {
+      if (displaySolution(p, unknown, guess)) return true;
+      else break;
+    }
+
+    setUnknown(p, guess + 0.001, unknown, axis);
+    recalculateBeltLength();
+    const nearGuess = belt.length - currentBeltLength;
+    guess -= 0.001 * atGuess / (nearGuess - atGuess);
   }
 
-  // Placeholder — show stub result
-  const box = document.getElementById('result-box');
-  box.style.display = 'block';
-  document.getElementById('result-label').textContent = unknown.replace('_', ' ');
-  document.getElementById('result-value').innerHTML =
-    '<span style="color:var(--text3);font-size:13px;font-style:italic;">solver not yet connected</span>';
-  showStatus('ready', 'ok');
+  setUnknown(p, initialValue, unknown, axis);
+  showStatus('failed to converge', 'err', true);
+  return false;
+}
+
+function toggleContinuousSolving(button) {
+  continuousSolving = !continuousSolving;
+  button.setAttribute("active", continuousSolving);
 }
 
 function displayResult(value, unit, label) {
@@ -1024,12 +1101,11 @@ function displayResult(value, unit, label) {
   document.getElementById('result-label').textContent = label || 'result';
   document.getElementById('result-value').innerHTML =
     `${typeof value === 'number' ? value.toFixed(2) : value} <span class="result-unit">${unit || ''}</span>`;
-  showStatus('solved ✓', 'ok');
   redraw();
 }
 
-function showStatus(text, type) {
-  const b = document.getElementById('status-badge');
+function showStatus(text, type, result) {
+  const b = document.getElementById(result ? 'result-badge' : 'status-badge');
   b.textContent = text;
   b.className = 'badge ' + type;
 }
@@ -1046,12 +1122,12 @@ function updateSummary() {
   document.getElementById('summary-belt').textContent = currentBeltLength.toFixed(2) + ' mm';
 
   if (pulleys.length < 2) {
-    showStatus('need ≥2 pulleys', 'warn'); return;
+    showStatus('need ≥2 pulleys', 'warn', false); return;
   }
   if (!isSequenceClosed()) {
-    showStatus('sequence not closed', 'warn'); return;
+    showStatus('sequence not closed', 'warn', false); return;
   }
-  showStatus('ready', 'ok');
+  showStatus('ready', 'ok', false);
 }
 
 // ─── Canvas ───────────────────────────────────────────────────────────────────
@@ -1148,16 +1224,19 @@ function drawBeltPath(ctx) {
     to = getPulley(sequence[i + 1]);
 
     tVector = getTangentVector(from, to);
-    yScale = 0.5 * tVector.x / Math.sqrt(tVector.x * tVector.x + tVector.y * tVector.y);
-    xScale = -tVector.y / tVector.x;
-    sy = yScale * from.pitchDiameter * (from.flip ? -1 : 1);
-    sx = xScale * sy;
-    ey = yScale * to.pitchDiameter * (to.flip ? -1 : 1);
-    ex = xScale * ey;
+    tMag = Math.sqrt(tVector.x * tVector.x + tVector.y * tVector.y);
+    yScale = tVector.x / tMag;
+    xScale = -tVector.y / tMag;
+    const fromRadius = 0.5 * from.pitchDiameter * (from.flip ? -1 : 1);
+    const toRadius = 0.5 * to.pitchDiameter * (to.flip ? -1 : 1);
+    sy = yScale * fromRadius;
+    sx = xScale * fromRadius;
+    ey = yScale * toRadius;
+    ex = xScale * toRadius;
 
     start = worldToCanvas(from.x + sx, from.y + sy);
     end = worldToCanvas(to.x + ex, to.y + ey);
-    currentBeltLength += Math.sqrt(tVector.x * tVector.x + tVector.y * tVector.y);
+    currentBeltLength += tMag;
     
     ctx.save();
     ctx.strokeStyle = 'rgba(245,166,35,0.5)';
@@ -1296,7 +1375,7 @@ function canvasMouseMove(e) {
     dragTarget.x += dx / (MM_PX * canvasScale);
     dragTarget.y -= dy / (MM_PX * canvasScale);
     renderPulleyProps();
-    redraw();
+    onSystemChange();
   }
 
   lastMouse = { x: cx, y: cy };
@@ -1304,10 +1383,8 @@ function canvasMouseMove(e) {
 
 function canvasMouseUp(e) {
   if (isDragging && dragTarget) {
-    dragTarget.x = Math.round(dragTarget.x);
-    dragTarget.y = Math.round(dragTarget.y);
     renderPulleyProps();
-    redraw();
+    onSystemChange();
   }
   isDragging = false;
   isPanning = false;
@@ -1423,45 +1500,6 @@ function clearAll() {
   renderPulleyProps(); updateSummary(); drawGrid(); redraw();
 }
 
-// ─── Python export ────────────────────────────────────────────────────────────
-
-function exportPython() {
-  const lines = [
-    '# Auto-generated by Pulley Solver UI',
-    'system = System()',
-    '',
-    '# Pulleys',
-  ];
-  pulleys.forEach(p => {
-    lines.push(`${p.name.toLowerCase()} = Pulley(pitch_diameter=${p.pitchDiameter}, teeth=${p.teeth}, ratio=${p.ratio}, x=${p.x}, y=${p.y}, flip=${p.flip})`);
-    lines.push(`system.add_pulley(${p.name.toLowerCase()})`);
-  });
-  lines.push('');
-  lines.push('# Belt');
-  lines.push(`system.belt = Belt(pitch=${belt.pitch}, teeth=${belt.teeth})`);
-  lines.push('');
-  lines.push('# Sequence');
-  const seqNames = sequence.map(s => {
-    const p = getPulley(s);
-    return p ? p.name.toLowerCase() : '?';
-  });
-  lines.push(`system.sequence = [${seqNames.join(', ')}]`);
-  lines.push('');
-  lines.push('# Solve');
-  const unknown = document.getElementById('solve-unknown').value;
-  if (unknown === 'ratio_only') {
-    lines.push('system.unknown_index = "RATIO_ONLY"  # solve for absolute scale using ratios + belt length');
-  } else {
-    lines.push('system.solve()');
-  }
-
-  navigator.clipboard.writeText(lines.join('\n')).then(() => {
-    const msg = document.getElementById('py-copy-msg');
-    msg.style.display = 'block';
-    setTimeout(() => { msg.style.display = 'none'; }, 2000);
-  });
-}
-
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 window.addEventListener('load', () => {
@@ -1470,10 +1508,15 @@ window.addEventListener('load', () => {
   renderSequencePickers();
   renderSequenceList();
   updateSummary();
+  showStatus("unsolved", "warn", true);
+  updateSolveUI();
 
   // Demo pulleys
   addPulley(0, 0);
   addPulley(100, 0);
+  addToSequence(1);
+  addToSequence(2);
+  addToSequence(1);
   selectPulley(null);
   selectedPulleyId = null;
   renderPulleyProps();
